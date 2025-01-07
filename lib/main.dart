@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/search_screen.dart';
+import 'screens/map_screen.dart';
 
 void main() {
   runApp(MyApp());
@@ -18,6 +19,7 @@ class MyApp extends StatelessWidget {
         '/': (context) => LoginScreen(),
         '/register': (context) => RegisterScreen(),
         '/search': (context) => SearchScreen(),
+        '/map': (context) => MapScreen(), // Tambahkan rute peta
       },
       theme: ThemeData(primarySwatch: Colors.blue),
     );

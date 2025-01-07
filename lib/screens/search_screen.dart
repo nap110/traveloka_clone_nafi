@@ -12,7 +12,7 @@ class _SearchScreenState extends State<SearchScreen> {
       "title": "Jakarta",
       "description": "Ibukota negara Indonesia yang ramai dan modern.",
       "image":
-          "https://www.bing.com/images/search?view=detailV2&ccid=HH27Tuq%2f&id=3B39FF84C5B615A2963493B76B88CA5F63B1D21C&thid=OIP.HH27Tuq_dqp1xXHyk0sLdAHaDr&mediaurl=https%3a%2f%2fth.bing.com%2fth%2fid%2fR.1c7dbb4eeabf76aa75c571f2934b0b74%3frik%3dHNKxY1%252fKiGu3kw%26riu%3dhttp%253a%252f%252fupload.wikimedia.org%252fwikipedia%252fcommons%252fb%252fb6%252fJakarta_Skyline_Part_2.jpg%26ehk%3dXkNrqg8odUYYYQ5FZss5vZ5B5NUV2dqqR61UFTaENb4%253d%26risl%3d%26pid%3dImgRaw%26r%3d0&exph=450&expw=906&q=%22image%22%3a+%22https%3a%2f%2fupload.wikimedia.org%2fwikipedia%2fcommons%2fe%2fe7%2fJakarta_skyline.jpg%22&simid=607992101008778264&FORM=IRPRST&ck=8F59A0E2265E22D1F9E1F82AA464C2DD&selectedIndex=0&itb=0&ajaxhist=0&ajaxserp=0"
+          "https://upload.wikimedia.org/wikipedia/commons/b/b6/Jakarta_skyline.jpg"
     },
     {
       "title": "Bandung",
@@ -197,7 +197,18 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Pencarian'),
+        title: Text('Pencarian Kota'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.blue, Colors.lightBlueAccent],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         actions: [
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -228,9 +239,16 @@ class _SearchScreenState extends State<SearchScreen> {
           children: [
             TextField(
               decoration: InputDecoration(
-                labelText: 'Cari...',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
+                hintText: 'Cari kota...',
+                prefixIcon: Icon(Icons.search, color: Colors.blue),
+                filled: true,
+                fillColor: Colors.blue[50],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(25),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding:
+                    EdgeInsets.symmetric(vertical: 15, horizontal: 20),
               ),
               onChanged: (query) {
                 _filterResults(query);
@@ -238,27 +256,57 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
             SizedBox(height: 16),
             Expanded(
-              child: ListView.builder(
-                itemCount: searchResults.length,
-                itemBuilder: (context, index) {
-                  final item = searchResults[index];
-                  return ListTile(
-                    title: Text(item['title']!),
-                    subtitle: Text(item['description']!),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => DetailScreen(
-                            title: item['title']!,
-                            description: item['description']!,
-                            image: item['image']!, // Mengirim URL gambar
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                },
+              child: AnimatedSwitcher(
+                duration: Duration(milliseconds: 300),
+                child: searchResults.isNotEmpty
+                    ? ListView.builder(
+                        key: ValueKey(searchResults.length),
+                        itemCount: searchResults.length,
+                        itemBuilder: (context, index) {
+                          final item = searchResults[index];
+                          return Card(
+                            elevation: 5,
+                            margin: EdgeInsets.symmetric(vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: ListTile(
+                              leading: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  item['image']!,
+                                  width: 50,
+                                  height: 50,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (BuildContext context,
+                                      Object error, StackTrace? stackTrace) {
+                                    return Icon(Icons.error, size: 50);
+                                  },
+                                ),
+                              ),
+                              title: Text(item['title']!,
+                                  style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold)),
+                              subtitle: Text(item['description']!,
+                                  style: TextStyle(fontSize: 14)),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => DetailScreen(
+                                      title: item['title']!,
+                                      description: item['description']!,
+                                      image: item['image']!,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          );
+                        },
+                      )
+                    : Center(child: Text('Tidak ada hasil ditemukan')),
               ),
             ),
           ],
@@ -271,7 +319,7 @@ class _SearchScreenState extends State<SearchScreen> {
 class DetailScreen extends StatelessWidget {
   final String title;
   final String description;
-  final String image; // Tambahkan parameter untuk gambar
+  final String image;
 
   DetailScreen(
       {required this.title, required this.description, required this.image});
@@ -282,19 +330,30 @@ class DetailScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(title),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(15),
+              child: Image.network(
+                image,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: 250,
+              ),
             ),
             SizedBox(height: 16),
-            Image.network(image), // Tampilkan gambar menggunakan Image.network
+            Text(
+              title,
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            ),
             SizedBox(height: 16),
-            Text(description, style: TextStyle(fontSize: 16)),
+            Text(
+              description,
+              style: TextStyle(fontSize: 18),
+            ),
           ],
         ),
       ),

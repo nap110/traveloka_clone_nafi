@@ -2,6 +2,51 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart';
+
+class RatingDatabase {
+  static final RatingDatabase instance = RatingDatabase._init();
+
+  static Database? _database;
+
+  RatingDatabase._init();
+
+  Future<Database> get database async {
+    if (_database != null) return _database!;
+    _database = await _initDB('ratings.db');
+    return _database!;
+  }
+
+  Future<Database> _initDB(String filePath) async {
+    final dbPath = await getDatabasesPath();
+    final path = join(dbPath, filePath);
+    return openDatabase(path, version: 1, onCreate: _createDB);
+  }
+
+  Future _createDB(Database db, int version) async {
+    await db.execute('''
+      CREATE TABLE ratings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        destination TEXT,
+        rating REAL,
+        comment TEXT
+      )
+    ''');
+  }
+
+  Future<void> insertRating(
+      String destination, double rating, String comment) async {
+    final db = await instance.database;
+    await db.insert('ratings',
+        {'destination': destination, 'rating': rating, 'comment': comment});
+  }
+
+  Future<List<Map<String, dynamic>>> fetchRatings() async {
+    final db = await instance.database;
+    return db.query('ratings');
+  }
+}
 
 class DetailScreen extends StatefulWidget {
   final String title;
@@ -18,13 +63,25 @@ class DetailScreen extends StatefulWidget {
   _DetailScreenState createState() => _DetailScreenState();
 }
 
-class _DetailScreenState extends State<DetailScreen> {
+class _DetailScreenState extends State<DetailScreen>
+    with SingleTickerProviderStateMixin {
   bool isBookmarked = false;
+  late AnimationController _controller;
+  late Animation<double> _animation;
 
   @override
   void initState() {
     super.initState();
     _checkBookmark();
+
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    _animation = Tween<double>(begin: 1.0, end: 1.2).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
   }
 
   Future<void> _checkBookmark() async {
@@ -49,6 +106,10 @@ class _DetailScreenState extends State<DetailScreen> {
     setState(() {
       isBookmarked = !isBookmarked;
     });
+
+    _controller.forward();
+    await Future.delayed(Duration(milliseconds: 300));
+    _controller.reverse();
   }
 
   Future<void> _shareDestination() async {
@@ -60,8 +121,9 @@ class _DetailScreenState extends State<DetailScreen> {
   Future<void> _showRatingDialog() async {
     double rating = 0;
     showDialog(
-      context: context,
-      builder: (context) {
+      context: context, // Pastikan context di sini adalah BuildContext
+      builder: (BuildContext context) {
+        // Gunakan BuildContext dalam builder
         return AlertDialog(
           title: Text('Rate this Destination'),
           content: Column(
@@ -91,8 +153,30 @@ class _DetailScreenState extends State<DetailScreen> {
               child: Text('Submit'),
               onPressed: () {
                 // Simpan rating dan komentar di tempat yang sesuai (misalnya, database)
+                Navigator.of(context)
+                    .pop(); // pastikan context yang digunakan adalah BuildContext
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showConfirmationDialog() async {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Rating berhasil'),
+          content:
+              Text('Terima kasih telah memberi rating pada destinasi ini.'),
+          actions: [
+            TextButton(
+              onPressed: () {
                 Navigator.of(context).pop();
               },
+              child: Text('Tutup'),
             ),
           ],
         );
@@ -108,7 +192,14 @@ class _DetailScreenState extends State<DetailScreen> {
         title: Text(widget.title),
         actions: [
           IconButton(
-            icon: Icon(isBookmarked ? Icons.favorite : Icons.favorite_border),
+            icon: AnimatedSwitcher(
+              duration: Duration(milliseconds: 300),
+              child: Icon(
+                isBookmarked ? Icons.favorite : Icons.favorite_border,
+                key: ValueKey<bool>(isBookmarked),
+                color: isBookmarked ? Colors.red : Colors.white,
+              ),
+            ),
             onPressed: _toggleBookmark,
           ),
         ],
@@ -116,51 +207,20 @@ class _DetailScreenState extends State<DetailScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Gambar utama dengan dekorasi
-            Container(
-              width: double.infinity,
-              height: 300,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.network(
-                    widget.image,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Center(child: Icon(Icons.broken_image, size: 50));
-                    },
-                  ),
-                  Align(
-                    alignment: Alignment.topRight,
-                    child: Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: Icon(Icons.favorite,
-                                color:
-                                    isBookmarked ? Colors.red : Colors.white),
-                            onPressed: _toggleBookmark,
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.share, color: Colors.white),
-                            onPressed: _shareDestination,
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.star, color: Colors.white),
-                            onPressed: _showRatingDialog,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+            Hero(
+              tag: widget.title,
+              child: FadeInImage.assetNetwork(
+                placeholder: 'assets/placeholder.png',
+                image: widget.image,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: 300,
+                imageErrorBuilder: (context, error, stackTrace) {
+                  return Image.asset('assets/placeholder.png');
+                },
               ),
             ),
-
             SizedBox(height: 16),
-            // Card untuk konten informasi
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Card(
